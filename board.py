@@ -7,10 +7,12 @@ DIMENSIONS = 8
 SQUARE_SIZE = HEIGHT // DIMENSIONS
 MAX_FPS = 15
 IMAGES = {}
-POSSIBLE_PLAYERS = ["YOU", "MINIMAX", "LS"]
-MENU_LOCATIONS = [(4, 3), (5.2, 3), (6.4, 3), (4, 5), (5.2, 5), (6.4, 5), (6.8, 6.8), (4.8, 1), (6, 1)]
-MENU_LOCATION_TO_TEXT = {(4, 3): "YOU", (5.2, 3): "MINIMAX", (6.4, 3): "LS", (4, 5): "YOU", (5.2, 5): "MINIMAX", (6.4, 5): "LS", (6.8, 6.8): "CONTINUE", (4.8, 1): "white", (6, 1): "black"}
+POSSIBLE_PLAYERS = ["YOU", "MINIMAX"]
+MENU_LOCATIONS = [(4, 3), (5.2, 3), (4, 5), (5.2, 5), (6.8, 6.8), (4.8, 1), (6, 1)]
+MENU_LOCATION_TO_TEXT = {(4, 3): "YOU", (5.2, 3): "MINIMAX", (4, 5): "YOU", (5.2, 5): "MINIMAX", \
+    (6.8, 6.8): "CONTINUE", (4.8, 1): "white", (6, 1): "black"}
 TEXTS = ["choose a color: ", "player 1: ", "player 2: "]
+COL_TO_CATEGORY = {6.8: "continue",5:"opponent" , 3:"player" , 1:"color" }
 
 class Board():
     def __init__(self):
@@ -31,8 +33,10 @@ class Board():
         self.player_color = ""
         self.player = ""
         self.opponent = ""
+        self.menu_buttons = generate_menu_buttons()
     
-    
+
+#------------------------------------Board functios ----------------------------------------------------
     
     def drawText(self, text):
         s = p.Surface((SQUARE_SIZE*6, SQUARE_SIZE*2))
@@ -122,24 +126,23 @@ class Board():
                             self.player_clicks = [] 
                     if not self.move_made:
                         self.player_clicks = [self.sq_selected]
-            # keyself presses
-            elif e.type == p.KEYDOWN:
-                print("here")
-                if e.key == p.K_z:
-                    self.gs.undoMove()
-                    self.move_made = True
-                    self.animate = False
-                    self.game_over = False
-                if e.key == p.K_r:
-                    self.gs = chessengine.GameState()
-                    if self.flip:
-                        self.gs.flipBoard()
-                    self.valid_moves = self.gs.getValidMoves()
-                    self.sq_selected = ()
-                    self.player_clicks = []
-                    self.move_made = False
-                    self.animate = False
-                    self.game_over = False
+        # keyself presses
+        elif e.type == p.KEYDOWN:
+            if e.key == p.K_z:
+                self.gs.undoMove()
+                self.move_made = True
+                self.animate = False
+                self.game_over = False
+            if e.key == p.K_r:
+                self.gs = chessengine.GameState()
+                if self.flip:
+                    self.gs.flipBoard()
+                self.valid_moves = self.gs.getValidMoves()
+                self.sq_selected = ()
+                self.player_clicks = []
+                self.move_made = False
+                self.animate = False
+                self.game_over = False
 
     def updateMenu(self, e):
         if e.type == p.QUIT:
@@ -151,20 +154,20 @@ class Board():
             click_location = p.mouse.get_pos()
             col = click_location[0]/SQUARE_SIZE
             row = click_location[1]/SQUARE_SIZE
-            for location in MENU_LOCATIONS:
-                if location[0] <= col <= location[0] + 1 and location[1] <= row <= location[1] + 1:
-                    if location[1] == 1:
-                        self.player_color = MENU_LOCATION_TO_TEXT[location]
-                    elif location[1] == 3:
-                        self.player = MENU_LOCATION_TO_TEXT[location]
-                    elif location[1] == 5:
-                        self.opponent = MENU_LOCATION_TO_TEXT[location]
-                    elif location == (6.8, 6.8) and self.player != "" and self.opponent != "" and self.player_color != "":
+            for button in self.menu_buttons:
+                if button.location[0] <= col <= button.location[0] + 1 and button.location[1] <= row <= button.location[1] + 1:
+                    if button.category == "color":
+                        self.player_color = MENU_LOCATION_TO_TEXT[button.location]
+                    elif button.category == "player":
+                        self.player = MENU_LOCATION_TO_TEXT[button.location]
+                    elif button.category == "opponent":
+                        self.opponent = MENU_LOCATION_TO_TEXT[button.location]
+                    elif button.category == "continue" and self.player != "" and self.opponent != "" and self.player_color != "":
                         self.menu_phase = False
                     for click in self.player_clicks:
-                        if click[1] == location[1]:
+                        if click[1] == button.location[1]:
                             self.player_clicks.remove(click)
-                    self.player_clicks.append(location)
+                    self.player_clicks.append(button.location)
         self.clock.tick(MAX_FPS)
         p.display.flip()
         
@@ -184,24 +187,16 @@ class Board():
                 s.fill(p.Color("white"))
             self.screen.blit(s, (SQUARE_SIZE * location[0], SQUARE_SIZE * location[1]))
             font = p.font.SysFont("bahnschrift", 10, True, False)
-            text_object = font.render(MENU_LOCATION_TO_TEXT[location], 0, p.Color("black")) if location != (6, 1) else font.render(MENU_LOCATION_TO_TEXT[location], 0, p.Color("white"))
-            text_location = p.Rect(0, 0, SQUARE_SIZE, SQUARE_SIZE).move(SQUARE_SIZE * location[0] + (SQUARE_SIZE - text_object.get_width())/2, SQUARE_SIZE * location[1] + (SQUARE_SIZE - text_object.get_height())/2)
+            text_object = font.render(MENU_LOCATION_TO_TEXT[location], 0, p.Color("black")) if location != (6, 1)\
+                 else font.render(MENU_LOCATION_TO_TEXT[location], 0, p.Color("white"))
+            text_location = p.Rect(0, 0, SQUARE_SIZE, SQUARE_SIZE).move(SQUARE_SIZE * location[0] + \
+                (SQUARE_SIZE - text_object.get_width())/2, SQUARE_SIZE * location[1] + (SQUARE_SIZE - text_object.get_height())/2)
             self.screen.blit(text_object, text_location)
         for click in self.player_clicks:
             changeSquareColor(self.screen, click)
 
-def changeSquareColor(screen, location):
-    s = p.Surface((SQUARE_SIZE, SQUARE_SIZE))
-    s.set_alpha(80)
-    s.fill(p.Color("green"))
-    screen.blit(s, (SQUARE_SIZE * location[0], SQUARE_SIZE * location[1]))
 
-def load_images():
-    pieces = ['wp', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bp', 'bR', 'bN', 'bB', 'bK', 'bQ']
-    for piece in pieces:
-        IMAGES[piece] = p.transform.scale(p.image.load("images/" + piece +".png"), (SQUARE_SIZE, SQUARE_SIZE))
-    
-
+#---------------------------------------------------------------------------------------------------------------------
         
 def playGame():
     board = Board()
@@ -212,27 +207,31 @@ def playGame():
             board.updateMenu(e)
         board.clock.tick(MAX_FPS)
         p.display.flip()
-    if(board.player_color == "black"):
+    if board.player_color == "black":
         board.gs.flipBoard()
         board.flip = True
     board.player_clicks = []
     board.valid_moves = board.gs.getValidMoves()
     while board.running:
-        if len(board.gs.move_log) % 2 == 1:
-            best_move = board.gs.getBestMove(3)
-            board.gs.makeMove(best_move)
-            board.move_made = True
-            board.animate = True
+        # if it's the oponent's turn use minimax to make the next move
+        if board.gs.white_to_move and board.player_color == "white" and board.player == "MINIMAX"\
+            or board.gs.white_to_move and board.player_color != "white" and board.opponent == "MINIMAX"\
+            or not board.gs.white_to_move and board.player_color != "white" and board.player == "MINIMAX"\
+            or not board.gs.white_to_move and board.player_color == "white" and board.opponent == "MINIMAX":
+            if not board.game_over:    
+                best_move = board.gs.getBestMove(3)
+                board.gs.makeMove(best_move)
+                board.move_made = True
+                board.animate = True
         else:
             for e in p.event.get():
-                board.getEvent(e)    
+                board.getEvent(e)   
         if board.move_made:
             if board.animate:
                 board.animateMove(board.gs.move_log[len(board.gs.move_log) - 1])
             board.valid_moves = board.gs.getValidMoves()
             board.move_made = False
             board.animate = False
-            print(board.gs.position)
 
         board.draw_game_state()
         if board.gs.check_mate:
@@ -248,5 +247,30 @@ def playGame():
         p.display.flip()
 
 
+def changeSquareColor(screen, location):
+    s = p.Surface((SQUARE_SIZE, SQUARE_SIZE))
+    s.set_alpha(80)
+    s.fill(p.Color("green"))
+    screen.blit(s, (SQUARE_SIZE * location[0], SQUARE_SIZE * location[1]))
 
+def load_images():
+    pieces = ['wp', 'wR', 'wN', 'wB', 'wK', 'wQ', 'bp', 'bR', 'bN', 'bB', 'bK', 'bQ']
+    for piece in pieces:
+        IMAGES[piece] = p.transform.scale(p.image.load("images/" + piece +".png"), (SQUARE_SIZE, SQUARE_SIZE))
+
+#--------------------------------------Button functions------------------------------------------------
+
+class Button():
+    def __init__(self, location):
+        self.location = location
+        self.text = MENU_LOCATION_TO_TEXT[location]
+        self.category = COL_TO_CATEGORY[location[1]]
+    
+    
+def generate_menu_buttons():
+    menu_buttons = []
+    for location in MENU_LOCATIONS:
+        temp_button = Button(location)
+        menu_buttons.append(temp_button)
+    return menu_buttons
 

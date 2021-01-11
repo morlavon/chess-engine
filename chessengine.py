@@ -28,6 +28,8 @@ class GameState():
         self.castle_check = False
         self.move_check = False
 
+#-----------------------------------GameState functions ----------------------------------------------
+
     def flipBoard(self):
         self.board = [
             ["wR", "wN", "wB", "wK", "wQ", "wB", "wN", "wR"],
@@ -46,6 +48,7 @@ class GameState():
         self.board[move.end_row][move.end_col] = move.piece_moved
         self.move_log.append(move)
         self.white_to_move = not self.white_to_move
+        # update parameters: castle rights, king location for checks, enpassant moves.
         if move.piece_moved == "wK":
             self.white_king_location = (move.end_row, move.end_col)
         elif move.piece_moved == "bK":
@@ -65,73 +68,7 @@ class GameState():
             self.castling_rights.wqs, self.castling_rights.bqs))
         self.position = self.getScore()
         
-    def getScore(self):
-        piece_to_value = {"K": 1000, "Q": 9, "p": 1, "N": 3, "B": 3.25, "R": 5}
-        color_to_value = {"w": 1, "b": -1}
-        position_value = 0
-        for r in range(len(self.board)):
-            for c in range(len(self.board[r])):
-                piece = self.board[r][c]
-                if piece != "--":
-                    color_value = color_to_value[piece[0]]
-                    piece_value = color_value * piece_to_value[self.board[r][c][1]]
-                    position_value += piece_value
-        return position_value
     
-    def getMaxScore(self, depth):
-        if depth == 0:
-            return self.getScore()
-        valid_moves = self.getValidMoves()
-        self.makeMove(valid_moves[0])
-        best_score = self.getMinScore(depth-1)
-        self.undoMove()
-        for move in valid_moves:
-            self.makeMove(move)
-            score = self.getMinScore(depth-1)
-            if score > best_score:
-                best_score = score
-            self.undoMove()
-        return best_score
-
-    def getMinScore(self, depth):
-        if depth == 0:
-            return self.getScore()
-        valid_moves = self.getValidMoves()
-        self.makeMove(valid_moves[0])
-        best_score = self.getMaxScore(depth-1)
-        self.undoMove()
-        for move in valid_moves:
-            self.makeMove(move)
-            score = self.getMaxScore(depth-1)
-            if score < best_score:
-                best_score = score
-            self.undoMove()
-        return best_score
-
-    def getBestMove(self, depth):
-        valid_moves = self.getValidMoves()
-        self.makeMove(valid_moves[0])
-        best_score = self.getScore()
-        best_move = valid_moves[0]
-        self.undoMove()
-        for move in valid_moves:
-            self.makeMove(move)
-            if self.white_to_move:
-                score = self.getMinScore(depth-1)
-                print(move.start_row ,",", move.start_col, " to ", move.end_row, ",", move.end_col , " gives score of ", score)
-                if score < best_score:
-                    best_score = score
-                    best_move = move
-            else:
-                score = self.getMaxScore(depth-1)
-                if score > best_score:
-                    print("here")
-                    best_score = score
-                    best_move = move
-            self.undoMove()
-        print(best_move.start_row ,",", best_move.start_col, " to ", best_move.end_row, ",", best_move.end_col , " gives the best score of ", best_score)
-        return best_move
-
     
 
     def undoMove(self):
@@ -140,6 +77,7 @@ class GameState():
             self.board[move.start_row][move.start_col] = move.piece_moved
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.white_to_move = not self.white_to_move
+            #updating king's position
             if move.piece_moved == "wK":
                 self.white_king_location = (move.start_row, move.start_col)
                 if abs(move.start_col - move.end_col) == 2:
@@ -245,7 +183,8 @@ class GameState():
         return False
 
 
-
+#------------------------------------------piece move functions------------------------------------------------------
+ 
     def getKnightMoves(self, r, c, moves):
         steps = ((2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2))
         for step in steps:
@@ -382,7 +321,93 @@ class GameState():
                 self.castling_rights.bks = False
             if move.start_col == 0:
                 self.castling_rights.bqs = False
-        
+    
+
+    #----------------------------------------------------Minimax functions ---------------------------------------------------------
+
+    # reurns the score of the current position based on pieces importance    
+    def getScore(self):
+        piece_to_value = {"K": 1000, "Q": 9, "p": 1, "N": 3, "B": 3.25, "R": 5}
+        color_to_value = {"w": 1, "b": -1}
+        position_value = 0
+        for r in range(len(self.board)):
+            for c in range(len(self.board[r])):
+                piece = self.board[r][c]
+                if piece != "--":
+                    color_value = color_to_value[piece[0]]
+                    piece_value = color_value * piece_to_value[self.board[r][c][1]]
+                    position_value += piece_value
+        return position_value
+    
+
+    #returns the best score for white according to minimax 
+    def getMaxScore(self, depth):
+        if depth == 0:
+            return self.getScore()
+        if self.check_mate:
+            if self.white_to_move:
+                return -100
+            return 100
+        valid_moves = self.getValidMoves()
+        if len(valid_moves) == 0:
+            return 0
+        self.makeMove(valid_moves[0])
+        best_score = self.getMinScore(depth-1)
+        self.undoMove()
+        for move in valid_moves:
+            self.makeMove(move)
+            score = self.getMinScore(depth-1)
+            if score > best_score:
+                best_score = score
+            self.undoMove()
+        return best_score
+
+    # returns the best score for black according to minimax
+    def getMinScore(self, depth):
+        if depth == 0:
+            return self.getScore()
+        if self.check_mate:
+            if self.white_to_move:
+                return -100
+            return 100
+        if self.stale_mate:
+            return 0 
+        valid_moves = self.getValidMoves()
+        if len(valid_moves) == 0:
+            return 0
+        self.makeMove(valid_moves[0])
+        best_score = self.getMaxScore(depth-1)
+        self.undoMove()
+        for move in valid_moves:
+            self.makeMove(move)
+            score = self.getMaxScore(depth-1)
+            if score < best_score:
+                best_score = score
+            self.undoMove()
+        return best_score
+
+    #returns the best move to play in the position according to minimax
+    def getBestMove(self, depth):
+        valid_moves = self.getValidMoves()
+        self.makeMove(valid_moves[0])
+        best_score = self.getScore()
+        best_move = valid_moves[0]
+        self.undoMove()
+        for move in valid_moves:
+            self.makeMove(move)
+            if self.white_to_move:
+                score = self.getMinScore(depth-1)
+                if score < best_score:
+                    best_score = score
+                    best_move = move
+            else:
+                score = self.getMaxScore(depth-1)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+            self.undoMove()
+        print(best_move.start_row ,",", best_move.start_col, " to ", best_move.end_row, ",", best_move.end_col , " gives the best score of ", best_score)
+        return best_move
 
 
 class CastleRights:
@@ -391,6 +416,8 @@ class CastleRights:
         self.bks = bks
         self.wqs = wqs
         self.bqs = bqs
+
+#---------------------------------------------------------class Move ------------------------------------------------------
 
 class Move():
     ranks_to_rows = {"1":7, "2":6, "3":5, "4":4, "5":3, "6":2, "7":1, "8":0}
@@ -424,3 +451,5 @@ class Move():
 
     def getRankAndFile(self, r, c):
         return self.cols_to_files[c] + self.rows_to_ranks[r]
+
+
